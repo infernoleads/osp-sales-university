@@ -1053,25 +1053,126 @@ function Reports() {
   );
 }
 
+const TEMPLATES = [
+  { id: "welcome", name: "Welcome email", channel: "email", subject: "Welcome to OSP Sales University — Your Future Starts Now",
+    body: "Congratulations {{firstName}}!\n\nYou just took a powerful step toward a more consistent, confident, and financially stable future. Welcome to OSP Sales University — the training ground built to help you win in any room, any neighborhood, any retail floor, and any business conversation.\n\nYour first mission: log in, complete your Welcome to OSP course, and start your first AI roleplay.\n\nWelcome to the team,\nOSP Sales University\n\n{{link}}" },
+  { id: "incomplete", name: "Incomplete signup follow-up", channel: "email", subject: "You're almost in, {{firstName}} — finish your OSP signup",
+    body: "Hi {{firstName}},\n\nYou started your OSP Sales University application but didn't finish. It only takes 60 seconds to complete — your training path is ready and waiting.\n\nFinish here: {{link}}\n\nWe'd love to have you on the team.\nOSP Sales University" },
+  { id: "interview", name: "Interview reminder", channel: "email", subject: "Reminder: your OSP interview is coming up",
+    body: "Hi {{firstName}},\n\nThis is a friendly reminder about your upcoming interview with OSP. Please arrive a few minutes early and bring your energy — we're excited to meet you.\n\nDetails & confirmation: {{link}}\n\nSee you soon,\nOSP Recruiting" },
+  { id: "firstlogin", name: "First login reminder", channel: "email", subject: "Your OSP dashboard is ready, {{firstName}}",
+    body: "Hi {{firstName}},\n\nYour account is live but you haven't logged in yet. Your first mission is simple: log in and complete the Welcome to OSP course.\n\nLog in: {{link}}\n\nThe future belongs to people who take action.\nOSP Sales University" },
+  { id: "completion", name: "Course completion", channel: "email", subject: "🎓 You completed {{course}}!",
+    body: "Way to go, {{firstName}}!\n\nYou just completed {{course}}. That's real progress toward your next rank: {{rank}}.\n\nKeep the momentum — your certificate is in your dashboard: {{link}}\n\nProud of you,\nOSP Sales University" },
+  { id: "certificate", name: "Certificate earned", channel: "email", subject: "Your {{course}} certificate is ready",
+    body: "Congratulations {{firstName}}!\n\nYour certificate for {{course}} (ID {{certId}}) has been issued. Download it, share it, and wear it with pride.\n\nView certificate: {{link}}\n\nOSP Sales University" },
+  { id: "badge", name: "Badge earned", channel: "sms", subject: "",
+    body: "🏆 Nice work {{firstName}}! You just earned the \"{{badge}}\" badge at OSP Sales University. Keep stacking wins: {{link}}" },
+  { id: "inactive", name: "Inactive reactivation", channel: "sms", subject: "",
+    body: "Hey {{firstName}}, we miss you at OSP! Your {{rank}} streak is waiting. Jump back in with one quick roleplay today: {{link}}" },
+  { id: "leaderboard", name: "Leaderboard congrats", channel: "sms", subject: "",
+    body: "🔥 {{firstName}}, you cracked the OSP leaderboard top 10! Hold your spot — run a drill before someone passes you: {{link}}" },
+  { id: "atrisk", name: "At-risk manager alert", channel: "email", subject: "⚠ At-risk student: {{firstName}}",
+    body: "Heads up,\n\n{{firstName}} ({{rank}}) is showing at-risk signals — no login in 7+ days and stalled course progress.\n\nRecommended action: a quick check-in call and one assigned roleplay.\n\nView profile: {{link}}\n\nOSP Coaching System" },
+];
+const MERGE_FIELDS = ["{{firstName}}","{{course}}","{{rank}}","{{badge}}","{{certId}}","{{link}}"];
+const fillTemplate = (s) => (s || "")
+  .split("{{firstName}}").join("Marcus")
+  .split("{{course}}").join("Telesales Academy")
+  .split("{{rank}}").join("Closing Specialist")
+  .split("{{badge}}").join("Certified Closer")
+  .split("{{certId}}").join("OSP-2026-1042")
+  .split("{{link}}").join("app.ospsales.university/login");
+
 function Templates() {
-  const list = ["Welcome email","Incomplete signup follow-up","Interview reminder","First login reminder","Course completion","Certificate earned","Badge earned","Inactive reactivation","Leaderboard congrats","At-risk manager alert"];
-  const [sel, setSel] = useState("Welcome email");
+  const [drafts, setDrafts] = useState(() => Object.fromEntries(TEMPLATES.map((t) => [t.id, { subject: t.subject, body: t.body }])));
+  const [selId, setSelId] = useState(TEMPLATES[0].id);
+  const [sent, setSent] = useState(false);
+  const bodyRef = useRef(null);
+  const sel = TEMPLATES.find((t) => t.id === selId);
+  const draft = drafts[selId];
+  const update = (k, v) => setDrafts((d) => ({ ...d, [selId]: { ...d[selId], [k]: v } }));
+  const reset = () => setDrafts((d) => ({ ...d, [selId]: { subject: sel.subject, body: sel.body } }));
+  const insert = (token) => {
+    const ta = bodyRef.current;
+    const cur = draft.body;
+    if (!ta) { update("body", cur + token); return; }
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    update("body", cur.slice(0, s) + token + cur.slice(e));
+    requestAnimationFrame(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = s + token.length; });
+  };
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card className="p-2 lg:col-span-1"><div className="px-2 py-2 text-sm font-semibold">Templates</div>
-        <div className="space-y-1">{list.map((t) => (
-          <button key={t} onClick={() => setSel(t)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm" style={{ background: sel === t ? C.blue + "1f" : "transparent", color: sel === t ? C.text : C.sub }}>
-            <Mail size={14} /> {t}
+        <div className="space-y-1">{TEMPLATES.map((t) => (
+          <button key={t.id} onClick={() => setSelId(t.id)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm"
+            style={{ background: selId === t.id ? C.blue + "1f" : "transparent", color: selId === t.id ? C.text : C.sub }}>
+            {t.channel === "email" ? <Mail size={14} /> : <MessageSquare size={14} />} <span className="flex-1">{t.name}</span>
+            <Pill color={t.channel === "email" ? C.blue : C.purple}>{t.channel === "email" ? "Email" : "SMS"}</Pill>
           </button>
         ))}</div>
       </Card>
-      <div className="lg:col-span-2">
-        {sel === "Welcome email" ? <WelcomeEmail /> :
-          <Card className="p-5"><div className="mb-2 font-bold" style={{ color: C.gold }}>{sel}</div>
-            <div className="text-sm" style={{ color: C.sub }}>Editable {sel.toLowerCase()} template with merge fields like <code style={{ color: C.gold }}>{"{{firstName}}"}</code>, <code style={{ color: C.gold }}>{"{{course}}"}</code>, <code style={{ color: C.gold }}>{"{{rank}}"}</code>. Connect an email/SMS provider in Integrations to send live.</div>
-            <div className="mt-3 flex gap-2"><Btn kind="soft">Edit</Btn><Btn kind="gold"><Send size={14} /> Send test</Btn></div>
-          </Card>}
+
+      <div className="space-y-4 lg:col-span-2">
+        <Card className="p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="font-bold" style={{ color: C.gold }}>{sel.name}</div>
+            <Pill color={sel.channel === "email" ? C.blue : C.purple}>{sel.channel === "email" ? "Email" : "SMS"}</Pill>
+          </div>
+
+          {sel.channel === "email" && (
+            <label className="mb-3 block">
+              <span className="mb-1 block text-xs font-semibold" style={{ color: C.sub }}>Subject</span>
+              <input value={draft.subject} onChange={(e) => update("subject", e.target.value)}
+                className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ background: C.panel2, border: `1px solid ${C.border}`, color: C.text }} />
+            </label>
+          )}
+
+          <div className="mb-2">
+            <span className="mb-1 block text-xs font-semibold" style={{ color: C.sub }}>Insert merge field</span>
+            <div className="flex flex-wrap gap-2">{MERGE_FIELDS.map((f) => (
+              <button key={f} onClick={() => insert(f)} className="rounded-full px-2.5 py-1 text-xs font-semibold"
+                style={{ background: C.gold + "1f", color: C.gold, border: `1px solid ${C.gold}40` }}>{f}</button>
+            ))}</div>
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold" style={{ color: C.sub }}>{sel.channel === "email" ? "Email body" : "Message"}</span>
+            <textarea ref={bodyRef} value={draft.body} onChange={(e) => update("body", e.target.value)} rows={sel.channel === "email" ? 10 : 4}
+              className="w-full rounded-xl px-3 py-2.5 text-sm outline-none" style={{ background: C.panel2, border: `1px solid ${C.border}`, color: C.text, lineHeight: 1.6 }} />
+          </label>
+          {sel.channel === "sms" && <div className="mt-1 text-xs" style={{ color: C.sub }}>{fillTemplate(draft.body).length} characters (~{Math.ceil(fillTemplate(draft.body).length / 160)} SMS)</div>}
+
+          <div className="mt-4 flex gap-2">
+            <Btn kind="soft" onClick={reset}>Reset to default</Btn>
+            <Btn kind="gold" className="ml-auto" onClick={() => setSent(true)}><Send size={14} /> Send test</Btn>
+          </div>
+        </Card>
+
+        <Card className="p-0">
+          <div className="border-b px-4 py-2 text-xs font-semibold" style={{ borderColor: C.border, color: C.sub }}>Live preview (sample data)</div>
+          {sel.channel === "email" ? (
+            <div className="p-5" style={{ color: C.text }}>
+              <div className="mb-3 font-bold" style={{ color: C.gold }}>{fillTemplate(draft.subject) || "(no subject)"}</div>
+              <div className="whitespace-pre-wrap text-sm" style={{ color: C.sub, lineHeight: 1.6 }}>{fillTemplate(draft.body)}</div>
+            </div>
+          ) : (
+            <div className="p-5">
+              <div className="max-w-xs rounded-2xl px-4 py-2.5 text-sm" style={{ background: C.blue, color: "#fff" }}>{fillTemplate(draft.body)}</div>
+            </div>
+          )}
+        </Card>
       </div>
+
+      <Modal open={sent} onClose={() => setSent(false)} title="Test sent (mock)">
+        <div className="text-center">
+          <div className="mx-auto mb-3 inline-flex rounded-full p-3" style={{ background: C.green + "22" }}><CheckCircle2 size={32} color={C.green} /></div>
+          <div className="font-bold" style={{ color: C.text }}>"{sel.name}" {sel.channel === "email" ? "email" : "SMS"} sent</div>
+          <div className="mt-1 text-sm" style={{ color: C.sub }}>Delivered to {sel.channel === "email" ? "admin@osp.com" : "+1 (313) 555-0142"} with sample data filled in.</div>
+          <div className="mt-3 text-xs" style={{ color: C.sub }}>⚙ Mocked. Connect Resend (email) or Twilio (SMS) in Integrations to send for real.</div>
+          <Btn kind="primary" className="mt-4 w-full" onClick={() => setSent(false)}>Got it</Btn>
+        </div>
+      </Modal>
     </div>
   );
 }
